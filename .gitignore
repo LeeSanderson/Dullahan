@@ -34,3 +34,6 @@ Icon
 # Files that might appear on external disk
 .Spotlight-V100
 .Trashes
+
+phantomjs-1.9.7.zip
+openssl-1.0.1h.tar.gz

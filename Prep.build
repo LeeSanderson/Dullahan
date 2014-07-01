@@ -1,0 +1,316 @@
+﻿<?xml version="1.0"?>
+
+<!-- ======================================================================= 
+  PhantomJS.NET preparatory NANT build script.
+
+  This script is designed to build dependent libraries from the PhantomJS 
+  headless browser project (see https://github.com/ariya/phantomjs) 
+  so that x86 and x64 debug and release libraries are built and headers and 
+  required by PhantomJS.NET are extracted.
+
+  Copyright(C) 2014 Lee Sanderson <leesndrsn@gmail.com>
+
+  Requirements:
+    Microsoft Visual C++, either version 2012, 2010 or 2008 (the Express edition should work just fine).
+    ActivePerl 5 (the free Community Edition should work fine).
+======================================================================= -->
+<project name="PhantomJS.NET Prep" default="all" basedir=".">
+
+	<!-- ============================================================ 
+		Top level build target
+	============================================================ -->
+	
+	<target name="all" depends="init, build32debug, build32release, build64debug, build64release"/>
+	
+	<!-- ============================================================ 
+		Target to initialise properties used by all targets
+	============================================================ -->
+	<target name="init">
+    <property name="opensslpackage" value="${path::get-full-path('.\openssl-1.0.1h.tar.gz')}"/>  
+    <fail unless="${file::exists(opensslpackage)}">
+      Unable to find open SSL source package (${opensslpackage}). 
+      Dowload from http://openssl.org/source
+    </fail>
+
+    <property name="phantomjspackage" value="${path::get-full-path('.\phantomjs-1.9.7.zip')}"/>      
+    <fail unless="${file::exists(phantomjspackage)}">
+      Unable to find open PhamtomJS source package (${phantomjspackage}). 
+      Dowload from https://github.com/ariya/phantomjs
+      (The master may not currently build - select tag 1.9.7 or later)
+    </fail>
+
+    <property name="vcvarsall" value="C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\vcvarsall.bat"/>
+    <fail unless="${file::exists(vcvarsall)}">
+      Unable to find VS command settings (${vcvarsall})
+    </fail>
+
+    <property name="libSrcPath" value="${path::get-full-path('.\LibSrc')}"/>
+    <property name="opensslpath" value="${libSrcPath}\openssl-1.0.1h"/>
+    <property name="phantomjspath" value="${libSrcPath}\phantomjs-1.9.7"/>
+    <property name="includeOutputPath" value=".\Includes"/>    
+    <property name="patchPath" value=".\Patch"/>    
+  </target>
+
+  <!-- ============================================================ 
+    Target to build 32-bit debug version of libraries.
+  ============================================================ -->
+  <target name="build32debug" depends="init">
+    <!-- Set up build specific parameters-->
+    <property name="buildType" value="32debug"/>
+    <property name="buildArchitecture" value="x86"/>
+    <property name="opensslArchitecture" value="debug-VC-WIN32"/>
+
+    <call target="build"/>
+  </target>
+
+  <!-- ============================================================ 
+    Target to build 32-bit release version of libraries.
+  ============================================================ -->
+  <target name="build32release" depends="init">
+    <!-- Set up build specific parameters-->
+    <property name="buildType" value="32release"/>
+    <property name="buildArchitecture" value="x86"/>
+    <property name="opensslArchitecture" value="VC-WIN32"/>    
+
+    <call target="build"/>
+  </target>
+
+  <!-- ============================================================ 
+    Target to build 32-bit debug version of libraries.
+  ============================================================ -->
+  <target name="build64debug" depends="init">
+    <!-- Set up build specific parameters-->
+    <property name="buildType" value="64debug"/>
+    <property name="buildArchitecture" value="x86_amd64"/>
+    <property name="opensslArchitecture" value="debug-VC-WIN64A"/>
+
+    <call target="build"/>
+  </target>
+
+  <!-- ============================================================ 
+    Target to build 32-bit release version of libraries.
+  ============================================================ -->
+  <target name="build64release" depends="init">
+    <!-- Set up build specific parameters-->
+    <property name="buildType" value="64release"/>
+    <property name="buildArchitecture" value="x86_amd64"/>
+    <property name="opensslArchitecture" value="VC-WIN64A"/>
+
+    <call target="build"/>
+  </target>
+
+
+  <!-- ============================================================ 
+    Shared target to enusre build properties have been set correctly.
+  ============================================================ -->
+  <target name="checkBuildVars" depends="init">
+    <fail unless="${property::exists('buildType')}">Cannot perform build task: buildType property is not defined</fail> 
+    <fail unless="${property::exists('buildArchitecture')}">Cannot perform build task: buildArchitecture property is not defined</fail> 
+    <fail unless="${property::exists('opensslArchitecture')}">Cannot perform build task: opensslArchitecture property is not defined</fail>     
+  </target>
+
+  <!-- ============================================================ 
+    Target to build libraries.
+  ============================================================ -->
+  <target name="build" depends="checkBuildVars">   
+
+    <property name="libOutputPath" value=".\Libs\Lib${buildType}"/>
+    <property name="toolsOutputPath" value=".\Tools"/>
+
+    <!-- Delete old lib directory -->
+    <delete dir="${libOutputPath}" includeemptydirs="true"/>  
+
+    <call target="bulidOpenSSL"/>
+    <call target="buildQt"/>
+
+  </target>
+
+  <!-- ============================================================ 
+    Target to build Open SSL libraries.
+  ============================================================ -->
+  <target name="bulidOpenSSL" depends="checkBuildVars">
+
+    <!-- clean and re-extract source code for each build -->
+    <if test="${not property::exists('noclean')}">
+      <delete dir="${opensslpath}" includeemptydirs="true"/>  
+      <untar src="${opensslpackage}" dest="${libSrcPath}" compression="gzip"/>
+      <fail unless="${directory::exists(opensslpath)}">
+        Expected directory ${opensslpath} to exist after extracting ${opensslpackage}
+      </fail>
+    </if>
+
+    <!-- Build openssl as defined here: http://developer.covenanteyes.com/building-openssl-for-visual-studio/ -->
+    <!-- perl Configure VC-WIN32 no-asm \-\-prefix=C:\Projects\Git\PhantomJS.NET\openssl-1.0.1h -->
+    <!-- ms\do_ms.bat -->
+    <!-- nmake -f ms\nt.mak install -->
+    <exec program="openSSLBuild.bat" workingdir="${opensslpath}">
+      <arg value='"${vcvarsall}"' />    
+      <arg value="${buildArchitecture}"/>
+      <arg value="${opensslArchitecture}" />
+      <arg value="${opensslpath}"/>
+    </exec>
+
+    <!-- Create output directory -->
+    <mkdir dir="${libOutputPath}"/>    
+
+    <copy todir="${libOutputPath}">
+      <fileset basedir="${opensslpath}\lib">
+        <include name="*.lib" />
+      </fileset>
+    </copy>
+
+  </target>
+
+  <!-- ============================================================ 
+    Target to build Qt libraries.
+  ============================================================ -->
+  <target name="buildQt" depends="checkBuildVars">
+
+    <property name="preconfigCmd" value="${phantomjspath}\src\qt\preconfig.cmd"/>
+    <property name="setOpenSSLDir" value="set OPEN_SSL_DIR=${opensslpath}"/>
+
+    <!-- clean and re-extract source code for each build -->
+    <if test="${not property::exists('noclean')}">      
+      <delete dir="${phantomjspath}" includeemptydirs="true"/>  
+      <unzip zipfile="${phantomjspackage}" todir="${libSrcPath}"/>
+      <fail unless="${directory::exists(phantomjspath)}">
+        Expected directory ${phantomjspath} to exist after extracting ${phantomjspackage}
+      </fail>
+    </if>
+
+    <!-- Patch qmake.conf to build correctly with VS2012 -->
+    <copy file="${patchPath}\qmake.conf"
+      tofile="${phantomjspath}\src\qt\mkspecs\win32-msvc2010\qmake.conf"/>
+    
+    <!-- Patch HashSet.h so it will compile under VS2012 -->
+    <copy file="${patchPath}\HashSet.h"
+      tofile="${phantomjspath}\src\qt\src\3rdparty\webkit\Source\JavaScriptCore\wtf\HashSet.h"/>
+    
+    <!-- Patch qglobal.h as CLR does not support __fastcall calling convention (so convert to __stdcall) -->
+    <copy file="${patchPath}\qglobal.h"
+      tofile="${phantomjspath}\src\qt\src\corelib\global\qglobal.h"/>
+
+    <!-- Patch Error.cpp to fix this issue under 64-bit build: https://github.com/ariya/phantomjs/issues/11991 -->
+    <copy file="${patchPath}\Error.cpp"
+      tofile="${phantomjspath}\src\qt\src\3rdparty\webkit\Source\JavaScriptCore\runtime\Error.cpp"/>
+
+    <!-- Patch webcore.pro - which has some 64-bit fixes -->
+    <copy file="${patchPath}\WebCore.pro"
+      tofile="${phantomjspath}\src\qt\src\3rdparty\webkit\Source\WebCore\WebCore.pro"/>
+
+    <!-- Patch QtWebKit.pro - which has some 64-bit fixes -->
+    <copy file="${patchPath}\QtWebKit.pro"
+      tofile="${phantomjspath}\src\qt\src\3rdparty\webkit\Source\WebKit\qt\QtWebKit.pro"/>
+
+    <!-- 
+      Patch preconfig.cmd depending on the buildType - 
+      these patch files contain build specific options as defined here:
+        https://groups.google.com/forum/#!topic/phantomjs/qgcpXILe-_0
+        https://github.com/ariya/phantomjs/issues/11991
+    -->
+    <copy file="${patchPath}\preconfig.${buildType}.cmd" tofile="${preconfigCmd}"/>
+
+    <!-- modify the preconfig.cmd file and replace the OPENSSLDIR to point to the OpenSSL libs folder -->
+    <fail unless="${build::textPoke(preconfigCmd, 'set OPEN_SSL_DIR=.*', setOpenSSLDir)}">
+      Failed to modify ${preconfigCmd}
+    </fail>
+
+    <!-- Build QT as defined here: http://phantomjs.org/build.html -->
+    <!-- basically just execute the preconfig.cmd after setting up the correct VS environment -->
+    <exec program="qtBuild.bat" workingdir="${phantomjspath}\src\qt">
+      <arg value='"${vcvarsall}"' />    
+      <arg value="${buildArchitecture}"/>
+    </exec>
+
+    <!-- Copy libs to libs directory -->
+    <copy todir="${libOutputPath}">
+      <fileset basedir="${phantomjspath}\src\qt\plugins\codecs">
+        <include name="*.lib" />
+      </fileset>
+    </copy>
+
+    <copy todir="${libOutputPath}">
+      <fileset basedir="${phantomjspath}\src\qt\plugins\imageformats">
+        <include name="*.lib" />
+      </fileset>
+    </copy>
+
+    <copy todir="${libOutputPath}">
+      <fileset basedir="${phantomjspath}\src\qt\lib">
+        <!-- Copy specific release libs... -->
+        <include name="QtWebKit.lib"/>
+        <include name="QtGui.lib"/>
+        <include name="QtNetwork.lib"/>        
+        <include name="QtCore.lib"/>  
+        <!-- ... or the debug libs if building a debug version ... -->
+        <include name="QtWebKitd.lib"/>
+        <include name="QtGuid.lib"/>
+        <include name="QtNetworkd.lib"/>        
+        <include name="QtCored.lib"/>        
+      </fileset>
+    </copy>
+
+    <!-- Copy tools to tools directory (only for 32bit release) -->
+    <delete dir="${toolsOutputPath}" includeemptydirs="true"/>  
+    <mkdir dir="${toolsOutputPath}"/>
+    <copy todir="${toolsOutputPath}"> 
+      <fileset basedir="${phantomjspath}\src\qt\bin">
+        <include name="moc.exe"/>
+      </fileset>
+    </copy>
+
+    <!-- Delete and recreate the includes directory -->
+    <delete dir="${includeOutputPath}" includeemptydirs="true"/>  
+    <mkdir dir="${includeOutputPath}"/>
+
+    <!-- Copy QT headers -->
+    <copy todir="${includeOutputPath}\include">
+      <fileset basedir="${phantomjspath}\src\qt\include">
+        <include name="**\*" />
+      </fileset>
+    </copy>
+    <copy todir="${includeOutputPath}\src">
+      <fileset basedir="${phantomjspath}\src\qt\src">
+        <include name="**\*.h" />
+      </fileset>
+    </copy>
+
+  </target>
+
+  <!-- ============================================================ 
+    Script funciton to poke text into a text file replacing
+    any lines that match the lineFinder regex with the value
+    defined by the lineReplace string.
+  ============================================================ -->
+  <script language="C#" prefix="build" >
+    <references>
+      <include name="System.dll" />
+    </references>  
+    <imports>
+      <import namespace="System.Text.RegularExpressions" />
+    </imports>
+    <code>
+      <![CDATA[
+      [Function("textPoke")]
+      public static bool textPoke(string fileName, string lineFinder, string lineReplace)
+      {
+          bool replaced = false;
+          Regex lineRegEx = new Regex(lineFinder);
+          string[] lines = File.ReadAllLines(fileName);
+          for(int i = 0; i < lines.Length; i++) 
+          {
+            if (lineRegEx.Match(lines[i]).Success)
+            {
+              lines[i] = lineReplace;
+              replaced = true;
+            }
+          }
+          if (replaced)
+            File.WriteAllLines(fileName, lines);
+          return replaced;
+      }
+      ]]>
+    </code>
+  </script>
+
+</project>
