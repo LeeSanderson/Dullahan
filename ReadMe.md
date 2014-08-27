@@ -13,13 +13,15 @@
  
 The **[Dullahan](https://github.com/LeeSanderson/Dullahan)** project is an attempt to create a .NET headless browser by compiling the Qt and Webkit libraries into an C++/CLI wrapper. 
 
+**NOTE: This project has been put on hold due to the apparent inability to link a C++/CLI assembly to the statically linked PhantomJS/QT libraries. This seems to be an limitation of the Visual Studio compiler in that the `/clr` switch is severely limited as does not support `/MTd` (multi-threaded debug) or `/MT` (multi-threaded) switches required to be able to statically link the QT libraries. We could dynamically link the QT libraries but this would require that the client machine that hosted the Dullahan app had the QT DLLs installed.** 
+
 Dullahan is built on top of Open SSL and the Qt Webkit projects. The Qt source files are sourced from [PhantomJS](http://phantomjs.org/) rather than Qt - mainly because PhantomJS is a headless browser and it only uses a subset of the Qt source files (which is quite large).
 
 ## Note ##
 This is a work in progress. The plan is as follows:
 
 1. Build Qt/Webkit libraries from PhantomJS (including Open SSL) **[DONE]**
-2. Create C++/CLI wrapper core assembly as bridge between Webkit and .NET
+2. Create C++/CLI wrapper core assembly as bridge between Webkit and .NET **[ON HOLD: It seems that it is not possible to statically link a C++/CLI assembly to the PhantomJS/QT libraries]**
 3. Create managed code assembly to simplify usage of core assembly.
 4. Create examples of different usage scenarios (e.g. screen capture, page automation etc.)
 5. Create nuget package
