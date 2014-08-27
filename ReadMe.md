@@ -32,13 +32,14 @@ This is a work in progress. The plan is as follows:
 
 1. Install Microsoft Visual C++ version 2012 (the [Express edition](http://www.microsoft.com/en-gb/download/details.aspx?id=34673) should work just fine).
 2. Install [ActivePerl 5](http://www.activestate.com/activeperl/downloads) (the free Community Edition should work fine).
-3. Download latest stable version of Open SSL source code from [http://www.openssl.org/source/openssl-1.0.1h.tar.gz](http://www.openssl.org/source/openssl-1.0.1h.tar.gz) and put in the root directory of the Dullahan your local repository (the directory containing the Dullahan.bat file).
-4. Download latest stable version of PhantomJS source code from [https://github.com/ariya/phantomjs/archive/1.9.7.zip](https://github.com/ariya/phantomjs/archive/1.9.7.zip) and put in the root directory of the Dullahan your local repository.
+3. Download latest stable version of Open SSL source code from [http://www.openssl.org/source/openssl-1.0.1h.tar.gz](http://www.openssl.org/source/openssl-1.0.1h.tar.gz) and put in the root directory of the your local Dullahan repository (the directory containing the Dullahan.bat file).
+4. Download latest stable version of PhantomJS source code from [https://github.com/ariya/phantomjs/archive/1.9.7.zip](https://github.com/ariya/phantomjs/archive/1.9.7.zip) and put in the root directory of the your local Dullahan repository.
 
-### Building the libraries ###
+### Building the WebKit libraries ###
 
 **Warning**: Compiling PhantomJS from source takes a long time (several hours), mainly due to thousands of files in the WebKit module. 
 
-1. Double click on the Dullanhan.bat batch file in the root directory of the Dullahan your local repository (this just sets up a command prompt and adds [NANT](http://nant.sourceforge.net/) to the path).
+1. Double click on the Dullanhan.bat batch file in the root directory of the your local Dullahan repository (this just sets up a command prompt and adds [NANT](http://nant.sourceforge.net/) to the path).
 2. Run `nant` - this executes the `Prep.build` script which extracts the source code for Open SSL and PhantomJS from the zip files and builds them four times (generating the Qt libraries for 32-bit debug, 32-bit release, 64-bit debug and 64-bit release).
 3. Once this completes (several hours later) you should have 4 directories under the `Lib` directory containing the Qt libraries, a copy of the Qt includes in the `Includes` directory and a copy of the Qt `moc.exe` tool in the `Tools` directory. These are required for the next stage of the build - building the C++/CLI wrapper.
+4. The `LibSrc` directory can be delete once this process completes.
